@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { API_BASE_URL } from "./config";
 
 const SAMPLE_TRANSCRIPT = `Doctor: Hi Ms. Johnson, good to see you again. How have you been feeling since our last visit?
 
@@ -53,7 +54,7 @@ function App() {
     setTrials([]);
 
     try {
-      const res = await fetch("http://localhost:4000/api/recommendations", {
+      const res = await fetch(`${API_BASE_URL}/api/recommendations`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json"
