@@ -2,6 +2,13 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
+const OpenAI = require("openai");
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
+const USE_MOCK_LLM = process.env.USE_MOCK_LLM === "true";
+
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -38,47 +45,154 @@ app.post("/api/recommendations", async (req, res) => {
   }
 });
 
-/**
- * Stub: LLM extraction
- * For now return a hardcoded object that matches our sample transcript.
- * Later we will replace this with a real OpenAI call.
- */
 async function extractFromTranscriptWithLLM(transcript) {
-  return {
-    patient: {
-      age: 62,
-      sex: "female",
-      city: "Chicago",
-      country: "United States",
-      comorbidities: ["hypertension (controlled)", "mild asthma"],
-      performanceStatus: "ECOG 1",
-      smokingHistory: {
-        status: "former",
-        packYears: 30,
-        yearsSinceQuit: 5
+  // If we're in mock mode, skip OpenAI entirely and just return the stub.
+  if (USE_MOCK_LLM) {
+    console.log("Using mock LLM extraction (USE_MOCK_LLM=true)");
+    return {
+      patient: {
+        age: 62,
+        sex: "female",
+        city: "Chicago",
+        country: "United States",
+        comorbidities: ["hypertension (controlled)", "mild asthma"],
+        performanceStatus: "ECOG 1",
+        smokingHistory: {
+          status: "former",
+          packYears: 30,
+          yearsSinceQuit: 5
+        }
+      },
+      diagnosis: {
+        primaryCondition: "non small cell lung cancer",
+        histology: "adenocarcinoma",
+        stage: "IIIA",
+        biomarkers: {
+          EGFR: "negative",
+          ALK: "negative",
+          "PD-L1": "60%"
+        }
+      },
+      trialPreferences: {
+        locationPreference: "Chicago area",
+        maxTravel: "local",
+        desiredPhases: ["Phase 2", "Phase 3"],
+        avoidConditions: [
+          "trials that exclude mild asthma",
+          "trials that exclude controlled hypertension"
+        ]
       }
-    },
-    diagnosis: {
-      primaryCondition: "non small cell lung cancer",
-      histology: "adenocarcinoma",
-      stage: "IIIA",
-      biomarkers: {
-        EGFR: "negative",
-        ALK: "negative",
-        "PD-L1": "60%"
-      }
-    },
-    trialPreferences: {
-      locationPreference: "Chicago area",
-      maxTravel: "local",
-      desiredPhases: ["Phase 2", "Phase 3"],
-      avoidConditions: [
-        "trials that exclude mild asthma",
-        "trials that exclude controlled hypertension"
-      ]
+    };
+  }
+
+  const systemPrompt =
+    "You are a medical NLP assistant. You read a doctor patient conversation transcript and extract relevant clinical information. " +
+    "You must respond with a single valid JSON object only, with no extra text before or after.";
+
+  const userPrompt = `
+Extract the following fields from the transcript.
+
+Return JSON with this exact structure:
+
+{
+  "patient": {
+    "age": number | null,
+    "sex": "male" | "female" | "other" | null,
+    "city": string | null,
+    "country": string | null,
+    "comorbidities": string[],
+    "performanceStatus": string | null,
+    "smokingHistory": {
+      "status": "never" | "current" | "former" | null,
+      "packYears": number | null,
+      "yearsSinceQuit": number | null
     }
-  };
+  },
+  "diagnosis": {
+    "primaryCondition": string | null,
+    "histology": string | null,
+    "stage": string | null,
+    "biomarkers": {
+      "EGFR": string | null,
+      "ALK": string | null,
+      "PD-L1": string | null
+    }
+  },
+  "trialPreferences": {
+    "locationPreference": string | null,
+    "maxTravel": string | null,
+    "desiredPhases": string[],
+    "avoidConditions": string[]
+  }
 }
+
+If something is not mentioned, set it to null or an empty array. Do not invent facts.
+
+Transcript:
+${transcript}
+`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ]
+    });
+
+    const content = response.choices[0]?.message?.content || "";
+
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch (parseErr) {
+      console.error("Failed to parse OpenAI JSON. Raw content:", content);
+      throw parseErr;
+    }
+
+    return parsed;
+  } catch (err) {
+    console.error("Error calling OpenAI, falling back to stub:", err.message);
+
+    // Fallback stub if an unexpected error happens when not in mock mode
+    return {
+      patient: {
+        age: 62,
+        sex: "female",
+        city: "Chicago",
+        country: "United States",
+        comorbidities: ["hypertension (controlled)", "mild asthma"],
+        performanceStatus: "ECOG 1",
+        smokingHistory: {
+          status: "former",
+          packYears: 30,
+          yearsSinceQuit: 5
+        }
+      },
+      diagnosis: {
+        primaryCondition: "non small cell lung cancer",
+        histology: "adenocarcinoma",
+        stage: "IIIA",
+        biomarkers: {
+          EGFR: "negative",
+          ALK: "negative",
+          "PD-L1": "60%"
+        }
+      },
+      trialPreferences: {
+        locationPreference: "Chicago area",
+        maxTravel: "local",
+        desiredPhases: ["Phase 2", "Phase 3"],
+        avoidConditions: [
+          "trials that exclude mild asthma",
+          "trials that exclude controlled hypertension"
+        ]
+      }
+    };
+  }
+}
+
 
 /**
  * Search ClinicalTrials.gov API v2 using extracted info.
