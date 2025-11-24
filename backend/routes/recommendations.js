@@ -10,11 +10,14 @@ router.post("/", async (req, res, next) => {
   try {
     const { transcript } = req.body;
 
+    //  handle no transcript provided
     if (!transcript) {
       return res.status(400).json({ error: "transcript is required" });
     }
 
+    //  retrieve extracted fields from transcript
     const extracted = await extractFromTranscript(transcript);
+    //  retrieve clinical trials based on extracted fields
     const trials = await searchClinicalTrials(extracted);
 
     res.json({ extracted, trials });

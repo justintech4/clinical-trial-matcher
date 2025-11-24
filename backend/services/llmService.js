@@ -1,4 +1,4 @@
-// Handles LLM extraction. Uses mock when USE_MOCK_LLM=true (dev).
+// Service to handle LLM extraction. Uses mock when env USE_MOCK_LLM=true (dev).
 // In prod, ensure OPENAI_API_KEY is set and mock mode is off.
 
 const OpenAI = require("openai");
@@ -20,16 +20,16 @@ async function extractFromTranscript(transcript) {
     "Extract structured clinical information. Output JSON only.";
 
   const userPrompt = `
-Return JSON with the following structure:
-{
-  "patient": {...},
-  "diagnosis": {...},
-  "trialPreferences": {...}
-}
+    Return JSON with the following structure:
+    {
+      "patient": {...},
+      "diagnosis": {...},
+      "trialPreferences": {...}
+    }
 
-Transcript:
-${transcript}
-`;
+    Transcript:
+    ${transcript}
+  `;
 
   try {
     const response = await openai.chat.completions.create({
@@ -43,7 +43,7 @@ ${transcript}
     const content = response.choices[0].message?.content || "";
     return JSON.parse(content);
   } catch (err) {
-    return getMockExtraction(); // safe fallback in dev or quota failure
+    return getMockExtraction(); // fallback just used for dev purposes
   }
 }
 

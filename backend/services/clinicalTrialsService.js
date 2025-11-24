@@ -1,4 +1,4 @@
-// Talks to ClinicalTrials.gov and returns only the fields used by the frontend.
+// Service to query ClinicalTrials.gov to find clinical trials from transcript
 
 const axios = require("axios");
 

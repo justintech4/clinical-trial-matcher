@@ -1,6 +1,4 @@
 // Mock LLM extraction used for dev/demo mode.
-// Using "breast cancer" to guarantee many ClinicalTrials.gov results.
-
 function getMockExtraction() {
   return {
     patient: {
@@ -17,9 +15,7 @@ function getMockExtraction() {
       }
     },
     diagnosis: {
-      primaryCondition: "breast cancer", // MOST COMMON SPECIFIC CANCER
-
-      // Optional extra details — not used in the query, but useful for UI display
+      primaryCondition: "breast cancer",
       histology: "invasive ductal carcinoma",
       stage: "II",
       biomarkers: {

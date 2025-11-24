@@ -1,5 +1,4 @@
 // Express app setup.
-// In prod, you may want stricter CORS settings.
 
 const express = require("express");
 const cors = require("cors");
@@ -17,7 +16,7 @@ app.get("/api/health", (req, res) => {
 
 app.use("/api/recommendations", recommendationsRouter);
 
-// Final error handler
+// final error handler
 app.use(errorHandler);
 
 module.exports = app;
