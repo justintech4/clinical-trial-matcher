@@ -7,16 +7,17 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+//  environment variable to determine whether to use actual OpenAI integration or mock
 const USE_MOCK_LLM = process.env.USE_MOCK_LLM === "true";
-
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+//  for dev purposes, allow all origins (for production purposes, can be more restrictive)
 app.use(cors());
 app.use(express.json());
 
-// Health check
+// health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
@@ -32,14 +33,14 @@ app.post("/api/recommendations", async (req, res) => {
       return res.status(400).json({ error: "transcript is required" });
     }
 
-    // 1. Extract structured data using LLM (stub for now)
+    // extract data from transcript using LLM
     const extracted = await extractFromTranscriptWithLLM(transcript);
 
-    // 2. Use extracted data to search ClinicalTrials.gov
+    // use extracted data to search clinical trials from ClinicalTrials.gov
     const trials = await searchClinicalTrials(extracted);
 
     res.json({ extracted, trials });
-  } catch (err) {
+  } catch (err) { //  for dev purposes, general catch all errors (for production purposes, can be more distinctive)
     console.error("Error in /api/recommendations", err.message);
     res.status(500).json({ error: "Internal server error" });
   }
