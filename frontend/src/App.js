@@ -1,43 +1,45 @@
 import React, { useState } from "react";
 import { API_BASE_URL } from "./config";
+import {
+  Container,
+  Typography,
+  TextField,
+  Button,
+  CircularProgress,
+  Card,
+  CardContent,
+  Link,
+} from "@mui/material";
 
-const SAMPLE_TRANSCRIPT = `Doctor: Hi Ms. Johnson, good to see you again. How have you been feeling since our last visit?
+const SAMPLE_TRANSCRIPT = `Doctor: Hi Ms. Williams, it's good to see you again. How have you been feeling since the biopsy?
 
-Patient: Honestly, not great. I am still getting short of breath when I walk even half a block, and the cough has not really improved.
+Patient: I've been anxious, to be honest. The soreness is okay, but I'm worried about what it means.
 
-Doctor: Got it. Just to confirm, you are 62 now, correct?
+Doctor: That's completely understandable. Let's go through everything carefully. Just to confirm, you're 55 years old and still living here in Chicago, correct?
 
-Patient: Yes, 62. I turned 62 in March.
+Patient: Yes, I'm 55 and I live in Chicago.
 
-Doctor: And you are still living here in Chicago?
+Doctor: Any other medical conditions we should keep in mind?
 
-Patient: Yes, I live in Chicago, in the city.
+Patient: I have high blood pressure, but it's controlled with medication. No diabetes or heart disease. I've never been a smoker.
 
-Doctor: Any chest pain, weight loss, or coughing up blood?
+Doctor: Thank you. Based on your mammogram, ultrasound, and the core needle biopsy, you have stage II invasive ductal carcinoma of the breast. This is a common type of breast cancer. We also sent your tumor for receptor testing. The results show that the cancer is estrogen receptor positive, progesterone receptor positive, and HER2 negative.
 
-Patient: I lost about 15 pounds over the past three months without trying. No blood when I cough, just thick mucus.
+Patient: Is that good or bad?
 
-Doctor: You have a history of smoking. Are you still smoking?
+Doctor: It means your tumor is hormone receptor positive and not overexpressing HER2. That usually gives us more options for hormone-based therapy, and we may also consider chemotherapy depending on risk factors. Your ECOG performance status is 1, which means you're up and about most of the day and able to do light work.
 
-Patient: I quit about 5 years ago. Before that, I smoked about a pack a day for 30 years.
+Patient: What are my treatment options?
 
-Doctor: Thank you. So based on your CT scan and the biopsy results, you have stage IIIA non small cell lung cancer, adenocarcinoma type. We also tested for some biomarkers. Your tumor is EGFR negative, ALK negative, but PD L1 expression is around 60 percent.
+Doctor: Standard treatment usually involves surgery, possibly chemotherapy, radiation, and hormone therapy. Another option is to look at clinical trials for stage II hormone receptor positive, HER2 negative breast cancer. Trials may offer new combinations of chemotherapy, targeted therapy, or different durations of hormone therapy.
 
-Patient: Is that bad?
+Patient: I would be open to clinical trials, as long as I don't have to travel too far.
 
-Doctor: It means certain immunotherapy drugs may work better. For treatment, the standard option is chemotherapy combined with radiation, and then an immunotherapy drug afterward. Given your ECOG performance status of 1, you are still a candidate for clinical trials if you are interested.
+Doctor: That makes sense. You do not have major heart or kidney issues, your blood pressure is controlled, and you have no significant lung disease, so you would likely meet basic eligibility for several trials. Our goal is to match your diagnosis and risk profile with trials that are currently recruiting for breast cancer.
 
-Patient: I am open to that, as long as it does not require me to travel far. I would prefer to stay in the Chicago area.
+Patient: Okay. I just want to understand my options and do what gives me the best chance.
 
-Doctor: That makes sense. You do not have major heart or kidney issues, correct?
-
-Patient: Correct. I have high blood pressure that is controlled with medication, and mild asthma, but otherwise I am pretty healthy.
-
-Doctor: Great. I will have our team look for clinical trials for stage III non small cell lung cancer with high PD L1 expression in the Chicago area that are currently recruiting. We will focus on phase II and III studies. We will avoid anything that excludes patients with mild asthma or controlled hypertension.
-
-Patient: Thank you, I appreciate that.
-
-Doctor: Of course. We will follow up with a list of eligible trials in the next week.`;
+Doctor: Absolutely. I will have our team search for clinical trials focused on stage II, hormone receptor positive, HER2 negative breast cancer. We'll review a short list of options with you, including the main drugs being tested and what each study is measuring as the primary outcome, at your next visit.`;
 
 function App() {
   const [transcript, setTranscript] = useState(SAMPLE_TRANSCRIPT);
@@ -57,9 +59,9 @@ function App() {
       const res = await fetch(`${API_BASE_URL}/api/recommendations`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ transcript })
+        body: JSON.stringify({ transcript }),
       });
 
       if (!res.ok) {
@@ -79,97 +81,176 @@ function App() {
   };
 
   return (
-    <div style={{ padding: "1rem" }}>
-      <h1>Clinical Trial Matcher</h1>
-      <p>
-        Enter a patient doctor transcript, extract key medical info, and see
-        clinical trial matches from ClinicalTrials.gov.
-      </p>
+    <Container maxWidth="md" sx={{ py: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Clinical Trial Matcher
+      </Typography>
+      <Typography variant="body1" sx={{ mb: 2 }}>
+        Paste a patient and doctor transcript, extract structured data, and see
+        matching clinical trials.
+      </Typography>
 
-      <form onSubmit={handleSubmit}>
-        <div>
-          <label htmlFor="transcript">Transcript</label>
-        </div>
-        <textarea
-          id="transcript"
+      {/* Transcript input + button */}
+      <form onSubmit={handleSubmit} style={{ marginBottom: 24 }}>
+        <TextField
+          label="Transcript"
+          multiline
+          minRows={10}
+          fullWidth
           value={transcript}
           onChange={(e) => setTranscript(e.target.value)}
-          rows={16}
-          style={{ width: "100%", maxWidth: "800px" }}
         />
-        <div style={{ marginTop: "0.5rem" }}>
-          <button type="submit" disabled={loading || !transcript.trim()}>
+        <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 12 }}>
+          <Button type="submit" variant="contained" disabled={loading || !transcript.trim()}>
             {loading ? "Finding trials..." : "Find clinical trials"}
-          </button>
+          </Button>
+          {loading && <CircularProgress size={20} />}
+          {error && (
+            <Typography variant="body2" color="error">
+              Error: {error}
+            </Typography>
+          )}
         </div>
       </form>
 
-      {error && (
-        <p style={{ color: "red", marginTop: "0.5rem" }}>Error: {error}</p>
-      )}
-
+      {/* Extracted data (simple JSON view) */}
       {extracted && (
-        <div style={{ marginTop: "1rem" }}>
-          <h2>Extracted Patient Data</h2>
-          <h3>Patient</h3>
-          <pre>{JSON.stringify(extracted.patient, null, 2)}</pre>
-
-          <h3>Diagnosis</h3>
-          <pre>{JSON.stringify(extracted.diagnosis, null, 2)}</pre>
-
-          <h3>Trial Preferences</h3>
-          <pre>{JSON.stringify(extracted.trialPreferences, null, 2)}</pre>
+        <div style={{ marginBottom: 24 }}>
+          <Typography variant="h6" gutterBottom>
+            Extracted patient data
+          </Typography>
+          <Card variant="outlined">
+            <CardContent>
+              <pre style={{ margin: 0, fontSize: 12 }}>
+                {JSON.stringify(extracted, null, 2)}
+              </pre>
+            </CardContent>
+          </Card>
         </div>
       )}
 
+      {/* Trials list */}
       {trials && trials.length > 0 && (
-        <div style={{ marginTop: "1rem" }}>
-          <h2>Clinical Trial Matches</h2>
-          <ul>
-            {trials.map((trial) => (
-              <li key={trial.nctId} style={{ marginBottom: "1rem" }}>
-                <div>
-                  <strong>{trial.title}</strong>
-                </div>
-                {trial.nctId && (
-                  <div>
-                    NCT ID: {trial.nctId}
-                  </div>
-                )}
-                {trial.phase && (
-                  <div>
-                    Phase: {trial.phase}
-                  </div>
-                )}
-                {trial.overallStatus && (
-                  <div>
-                    Status: {trial.overallStatus}
-                  </div>
-                )}
-                {trial.locationsSummary && (
-                  <div>
-                    Example location: {trial.locationsSummary}
-                  </div>
-                )}
-                {trial.url && (
-                  <div>
-                    <a href={trial.url} target="_blank" rel="noreferrer">
-                      View on ClinicalTrials.gov
-                    </a>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
+        <div style={{ marginBottom: 24 }}>
+          <Typography variant="h6" gutterBottom>
+            Clinical trial matches ({trials.length})
+          </Typography>
+
+          {trials.map((trial) => {
+            const {
+              nctId,
+              title,
+              briefSummary,
+              url,
+              eligibility,
+              conditions,
+              interventions,
+              primaryOutcome,
+            } = trial;
+
+            const firstIntervention = interventions && interventions[0];
+            const ages =
+              eligibility && (eligibility.minimumAge || eligibility.maximumAge)
+                ? `${eligibility.minimumAge || "N/A"} to ${
+                    eligibility.maximumAge || "N/A"
+                  }`
+                : null;
+
+            const sex = eligibility && eligibility.sex;
+            const healthyVolunteers = eligibility?.healthyVolunteers;
+            const conditionsLine =
+              conditions && conditions.length > 0 ? conditions.join(", ") : null;
+
+            const hasOutcome =
+              primaryOutcome &&
+              (primaryOutcome.measure || primaryOutcome.timeFrame);
+
+            return (
+              <Card
+                key={nctId || title}
+                variant="outlined"
+                sx={{ mb: 2, paddingY: 1 }}
+              >
+                <CardContent>
+                  {/* Title + NCT + link (simple, consistent) */}
+                  <Typography variant="h6">
+                    {title}
+                  </Typography>
+                  {nctId && (
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      NCT: {nctId}
+                    </Typography>
+                  )}
+                  {url && (
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      <Link href={url} target="_blank" rel="noreferrer">
+                        View study
+                      </Link>
+                    </Typography>
+                  )}
+
+                  {/* Summary */}
+                  {briefSummary && (
+                    <Typography variant="body2" sx={{ mb: 1 }}>
+                      {briefSummary}
+                    </Typography>
+                  )}
+
+                  {/* Eligibility */}
+                  {(ages || sex || healthyVolunteers != null) && (
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      <strong>Eligibility: </strong>
+                      {ages && <>Ages {ages}. </>}
+                      {sex && <>Sex: {sex}. </>}
+                      {healthyVolunteers != null && (
+                        <>Healthy volunteers: {healthyVolunteers ? "Yes" : "No"}.</>
+                      )}
+                    </Typography>
+                  )}
+
+                  {/* Conditions */}
+                  {conditionsLine && (
+                    <Typography variant="body2" sx={{ mb: 0.5 }}>
+                      <strong>Conditions: </strong>
+                      {conditionsLine}
+                    </Typography>
+                  )}
+
+                  {/* Intervention */}
+                  {firstIntervention &&
+                    (firstIntervention.type || firstIntervention.name) && (
+                      <Typography variant="body2" sx={{ mb: 0.5 }}>
+                        <strong>Intervention: </strong>
+                        {firstIntervention.type && `${firstIntervention.type}: `}
+                        {firstIntervention.name}
+                      </Typography>
+                    )}
+
+                  {/* Primary outcome */}
+                  {hasOutcome && (
+                    <Typography variant="body2">
+                      <strong>Primary outcome: </strong>
+                      {primaryOutcome.measure}
+                      {primaryOutcome.measure &&
+                        primaryOutcome.timeFrame &&
+                        " "}
+                      {primaryOutcome.timeFrame &&
+                        `(${primaryOutcome.timeFrame})`}
+                    </Typography>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
       {extracted && (!trials || trials.length === 0) && !loading && !error && (
-        <p style={{ marginTop: "1rem" }}>
+        <Typography variant="body2">
           No trials found for this query.
-        </p>
+        </Typography>
       )}
-    </div>
+    </Container>
   );
 }
 
