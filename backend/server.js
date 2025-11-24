@@ -1,7 +1,9 @@
+// Minimal server entry point.
+// In prod, Render or other platform injects PORT.
+
 const app = require("./app");
-const { port } = require("./config/env");
+const config = require("./config/env");
 
-app.listen(port, () => {
-  console.log(`Backend listening on port ${port}`);
+app.listen(config.port, () => {
+  console.log(`Backend listening on port ${config.port}`);
 });
-

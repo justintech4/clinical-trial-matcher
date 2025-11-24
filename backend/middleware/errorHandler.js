@@ -1,14 +1,9 @@
-//  general catch all error used for dev purposes
+// Basic error handler.
+// In prod, you might add logging, tracking, or hide error details.
+
 function errorHandler(err, req, res, next) {
-  console.error("Unhandled error from app error handler:", err);
-
-  if (res.headersSent) {
-    return next(err);
-  }
-
-  res.status(500).json({
-    error: "Internal server error"
-  });
+  console.error("Unhandled error:", err);
+  res.status(500).json({ error: "Internal server error" });
 }
 
 module.exports = { errorHandler };

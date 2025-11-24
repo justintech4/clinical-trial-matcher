@@ -1,3 +1,6 @@
+// Queries ClinicalTrials.gov.
+// In prod you may refine filtering or use additional fields.
+
 const axios = require("axios");
 
 async function searchClinicalTrials(extracted) {
@@ -22,14 +25,9 @@ async function searchClinicalTrials(extracted) {
   );
 
   const url = `https://clinicaltrials.gov/api/v2/studies?${params.toString()}`;
-
-  //  log url for dev purposes
-  console.log("ClinicalTrials.gov URL:", url);
-
   const response = await axios.get(url);
-  const data = response.data;
 
-  const studies = data?.studies || [];
+  const studies = response.data?.studies || [];
 
   return studies.map((study) => {
     const protocol = study.protocolSection || {};
@@ -39,32 +37,18 @@ async function searchClinicalTrials(extracted) {
     const contactsModule = protocol.contactsLocationsModule || {};
     const descriptionModule = protocol.descriptionModule || {};
 
-    const nctId = idModule.nctId || null;
-    const title = idModule.briefTitle || "Untitled Study";
-    const overallStatus = statusModule.overallStatus || "";
-    const phase = statusModule.phase || "";
-    const conditions = conditionsModule.conditions || [];
-
-    let locationSummary = "";
     const locations = contactsModule.locations || [];
-    if (locations.length > 0) {
-      const loc = locations[0];
-      const city = loc.city || "";
-      const country = loc.country || "";
-      locationSummary = [city, country].filter(Boolean).join(", ");
-    }
-
-    const briefSummary = descriptionModule.briefSummary || "";
+    const firstLoc = locations[0] || {};
 
     return {
-      nctId,
-      title,
-      overallStatus,
-      phase,
-      conditions,
-      locationsSummary: locationSummary,
-      briefSummary,
-      url: nctId ? `https://clinicaltrials.gov/study/${nctId}` : null
+      nctId: idModule.nctId || null,
+      title: idModule.briefTitle || "Untitled Study",
+      overallStatus: statusModule.overallStatus || "",
+      phase: statusModule.phase || "",
+      conditions: conditionsModule.conditions || [],
+      locationsSummary: [firstLoc.city, firstLoc.country].filter(Boolean).join(", "),
+      briefSummary: descriptionModule.briefSummary || "",
+      url: idModule.nctId ? `https://clinicaltrials.gov/study/${idModule.nctId}` : null
     };
   });
 }

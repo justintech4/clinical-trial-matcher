@@ -1,4 +1,6 @@
-//  mock llm extraction of transcript
+// Mock LLM extraction used for dev/demo.
+// In prod, you'd rely on real LLM extraction.
+
 function getMockExtraction() {
   return {
     patient: {

@@ -1,3 +1,5 @@
+// Main API endpoint: transcript in -> extracted data + trial matches out.
+
 const express = require("express");
 const router = express.Router();
 
@@ -8,7 +10,7 @@ router.post("/", async (req, res, next) => {
   try {
     const { transcript } = req.body;
 
-    if (!transcript || typeof transcript !== "string") {
+    if (!transcript) {
       return res.status(400).json({ error: "transcript is required" });
     }
 
