@@ -1,143 +1,105 @@
-// Uses ClinicalTrials.gov v2 API.
-// Dev behavior: tries a stricter query first, then relaxes filters if nothing is found.
+// Talks to ClinicalTrials.gov and returns only the fields used by the frontend.
 
 const axios = require("axios");
 
 async function searchClinicalTrials(extracted) {
   const primaryCondition = extracted?.diagnosis?.primaryCondition;
   if (!primaryCondition) {
-    console.log("No primary condition extracted — returning zero trials");
     return [];
   }
 
   const stage = extracted?.diagnosis?.stage;
   const histology = extracted?.diagnosis?.histology;
-
-  // Build a richer condition query using stage and histology if available.
-  let conditionQuery = primaryCondition;
-  if (stage) {
-    conditionQuery += ` ${stage}`; // e.g., "non small cell lung cancer IIIA"
-  }
-  if (histology) {
-    conditionQuery += ` ${histology}`; // e.g., "adenocarcinoma"
-  }
-
-  const city = extracted?.patient?.city;
-  const locationPreference = extracted?.trialPreferences?.locationPreference;
-
   const desiredPhases = extracted?.trialPreferences?.desiredPhases || [];
-  const phaseTerms = desiredPhases
-    .map((p) => p.trim())
-    .filter(Boolean)
-    .join(" "); // e.g., "Phase 2 Phase 3"
+  const phaseTerms = desiredPhases.join(" ");
 
-  // First pass: use all the filters we can.
-  const strictParams = new URLSearchParams();
-  strictParams.append("query.cond", conditionQuery);
+  // Build a richer condition query using stage + histology if present.
+  let richConditionQuery = primaryCondition;
+  if (stage) richConditionQuery += ` ${stage}`;
+  if (histology) richConditionQuery += ` ${histology}`;
 
-  if (city) {
-    strictParams.append("query.locn", city);
-  } else if (locationPreference) {
-    strictParams.append("query.locn", locationPreference);
+  // Helper used for both "rich" and fallback queries.
+  async function fetchTrials(conditionQuery, includePhaseTerms) {
+    const params = new URLSearchParams();
+    params.append("query.cond", conditionQuery);
+    if (includePhaseTerms && phaseTerms) {
+      params.append("query.term", phaseTerms);
+    }
+    params.append("filter.overallStatus", "NOT_YET_RECRUITING,RECRUITING");
+    params.append("pageSize", "10");
+
+    const url = `https://clinicaltrials.gov/api/v2/studies?${params.toString()}`;
+
+    const response = await axios.get(url);
+    const data = response.data;
+    return data.studies || [];
   }
 
-  if (phaseTerms) {
-    strictParams.append("query.term", phaseTerms);
-  }
-
-  strictParams.append("filter.overallStatus", "NOT_YET_RECRUITING,RECRUITING");
-  strictParams.append("pageSize", "10");
-  strictParams.append(
-    "fields",
-    [
-      "NCTId",
-      "BriefTitle",
-      "OverallStatus",
-      "Phase",
-      "Condition",
-      "LocationCity",
-      "LocationCountry",
-      "BriefSummary"
-    ].join(",")
-  );
-
-  // Try strict query first.
-  const strictUrl = `https://clinicaltrials.gov/api/v2/studies?${strictParams.toString()}`;
-  console.log("ClinicalTrials.gov strict URL:", strictUrl);
-
-  let data = null;
-
+  // 1) Try a more specific query first (condition + stage/histology + phases).
+  let studies = [];
   try {
-    const response = await axios.get(strictUrl);
-    data = response.data;
-  } catch (e) {
-    console.error("Error calling ClinicalTrials.gov (strict):", e.message);
+    studies = await fetchTrials(richConditionQuery, true);
+  } catch (err) {
+    console.error("Error in rich query:", err.message);
   }
 
-  // If strict query returns nothing or fails, relax the filters.
-  if (!data || !data.totalCount || data.totalCount === 0) {
-    console.log("No trials found with strict filters, relaxing query...");
-
-    const relaxedParams = new URLSearchParams();
-    relaxedParams.append("query.cond", primaryCondition); // only base condition
-    relaxedParams.append(
-      "filter.overallStatus",
-      "NOT_YET_RECRUITING,RECRUITING"
-    );
-    relaxedParams.append("pageSize", "10");
-    relaxedParams.append(
-      "fields",
-      [
-        "NCTId",
-        "BriefTitle",
-        "OverallStatus",
-        "Phase",
-        "Condition",
-        "LocationCity",
-        "LocationCountry",
-        "BriefSummary"
-      ].join(",")
-    );
-
-    const relaxedUrl = `https://clinicaltrials.gov/api/v2/studies?${relaxedParams.toString()}`;
-    console.log("ClinicalTrials.gov relaxed URL:", relaxedUrl);
-
+  // 2) If nothing found, fall back to just the primary condition.
+  if (!studies.length && richConditionQuery !== primaryCondition) {
     try {
-      const relaxedResponse = await axios.get(relaxedUrl);
-      data = relaxedResponse.data;
-    } catch (e) {
-      console.error("Error calling ClinicalTrials.gov (relaxed):", e.message);
-      data = { studies: [] };
+      studies = await fetchTrials(primaryCondition, false);
+    } catch (err) {
+      console.error("Error in fallback query:", err.message);
+      return [];
     }
   }
 
-  const studies = data?.studies || [];
-
-  // Normalize the API response into a simple list of trials for the frontend.
+  // Map fields used by frontend
   return studies.map((study) => {
     const protocol = study.protocolSection || {};
     const idModule = protocol.identificationModule || {};
-    const statusModule = protocol.statusModule || {};
-    const conditionsModule = protocol.conditionsModule || {};
-    const contactsModule = protocol.contactsLocationsModule || {};
     const descriptionModule = protocol.descriptionModule || {};
+    const conditionsModule = protocol.conditionsModule || {};
+    const eligibilityModule = protocol.eligibilityModule || {};
+    const armsModule = protocol.armsInterventionsModule || {};
+    const outcomesModule = protocol.outcomesModule || {};
 
-    const locations = contactsModule.locations || [];
-    const firstLoc = locations[0] || {};
+    const nctId = idModule.nctId || null;
+    const title = idModule.briefTitle || "Untitled Study";
+    const briefSummary = descriptionModule.briefSummary || "";
+    const conditions = conditionsModule.conditions || [];
+
+    const minimumAge = eligibilityModule.minimumAge || null;
+    const maximumAge = eligibilityModule.maximumAge || null;
+    const sex = eligibilityModule.sex || null;
+    const healthyVolunteers = eligibilityModule.healthyVolunteers;
+
+    const interventions = (armsModule.interventions || []).map((inv) => ({
+      type: inv.interventionType || null,
+      name: inv.name || null
+    }));
+
+    const primaryOutcomes = outcomesModule.primaryOutcomes || [];
+    const primaryOutcome = primaryOutcomes[0] || {};
+    const primaryOutcomeMeasure = primaryOutcome.measure || null;
+    const primaryOutcomeTimeFrame = primaryOutcome.timeFrame || null;
 
     return {
-      nctId: idModule.nctId || null,
-      title: idModule.briefTitle || "Untitled Study",
-      overallStatus: statusModule.overallStatus || "",
-      phase: statusModule.phase || "",
-      conditions: conditionsModule.conditions || [],
-      locationsSummary: [firstLoc.city, firstLoc.country]
-        .filter(Boolean)
-        .join(", "),
-      briefSummary: descriptionModule.briefSummary || "",
-      url: idModule.nctId
-        ? `https://clinicaltrials.gov/study/${idModule.nctId}`
-        : null
+      nctId,
+      title,
+      briefSummary,
+      conditions,
+      url: nctId ? `https://clinicaltrials.gov/study/${nctId}` : null,
+      eligibility: {
+        minimumAge,
+        maximumAge,
+        sex,
+        healthyVolunteers
+      },
+      interventions,
+      primaryOutcome: {
+        measure: primaryOutcomeMeasure,
+        timeFrame: primaryOutcomeTimeFrame
+      }
     };
   });
 }

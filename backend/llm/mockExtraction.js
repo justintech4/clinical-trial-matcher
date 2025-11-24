@@ -1,39 +1,38 @@
-// Mock LLM extraction used for dev/demo.
-// In prod, you'd rely on real LLM extraction.
+// Mock LLM extraction used for dev/demo mode.
+// Using "breast cancer" to guarantee many ClinicalTrials.gov results.
 
 function getMockExtraction() {
   return {
     patient: {
-      age: 62,
+      age: 55,
       sex: "female",
       city: "Chicago",
       country: "United States",
-      comorbidities: ["hypertension (controlled)", "mild asthma"],
+      comorbidities: ["hypertension (controlled)"],
       performanceStatus: "ECOG 1",
       smokingHistory: {
-        status: "former",
-        packYears: 30,
-        yearsSinceQuit: 5
+        status: "never",
+        packYears: 0,
+        yearsSinceQuit: null
       }
     },
     diagnosis: {
-      primaryCondition: "non small cell lung cancer",
-      histology: "adenocarcinoma",
-      stage: "IIIA",
+      primaryCondition: "breast cancer", // MOST COMMON SPECIFIC CANCER
+
+      // Optional extra details — not used in the query, but useful for UI display
+      histology: "invasive ductal carcinoma",
+      stage: "II",
       biomarkers: {
-        EGFR: "negative",
-        ALK: "negative",
-        "PD-L1": "60%"
+        ER: "positive",
+        PR: "positive",
+        HER2: "negative"
       }
     },
     trialPreferences: {
       locationPreference: "Chicago area",
       maxTravel: "local",
       desiredPhases: ["Phase 2", "Phase 3"],
-      avoidConditions: [
-        "trials that exclude mild asthma",
-        "trials that exclude controlled hypertension"
-      ]
+      avoidConditions: []
     }
   };
 }
